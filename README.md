@@ -60,5 +60,3 @@ $ ./mini_shell
 
 Structure : teamwork
 
----
-Module : Administration Système / Programmation Système
