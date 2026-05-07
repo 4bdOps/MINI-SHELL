@@ -1,24 +1,62 @@
-NAME = mini_shell
-CC = gcc
-CFLAGS = -Wall -Wextra -I./include
-SRCS = src/parser.c src/executor.c src/main.c
-OBJS = $(SRCS:.c=.o)
+# ============================================================
+# Mini Shell Makefile
+# ============================================================
+
+NAME		=	mini_shell
+
+# Compiler and flags
+CC			=	gcc
+CFLAGS		=	-Wall -Wextra -Werror -I./include
+LDFLAGS		=
+
+# Source files
+SRCS		=	src/main.c \
+				src/parser.c \
+				src/executor.c \
+				src/builtin.c \
+				src/history.c \
+				src/error.c \
+				src/redirect.c \
+				src/scripts.c \
+				src/utils.c
+
+# Object files
+OBJS		=	$(SRCS:.c=.o)
+
+# ============================================================
+# Rules
+# ============================================================
 
 all: $(NAME)
 
 $(NAME): $(OBJS)
-	$(CC) $(CFLAGS) -o $(NAME) $(OBJS)
+	$(CC) $(CFLAGS) -o $(NAME) $(OBJS) $(LDFLAGS)
+	@echo " Build successful: ./$(NAME)"
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
 	rm -f $(OBJS)
+	@echo " Cleaned object files"
 
 fclean: clean
 	rm -f $(NAME)
+	@echo " Removed executable"
 
 re: fclean all
 
-.PHONY: all clean fclean re
-EOF
+test: all
+	@echo "Running mini_shell..."
+	./$(NAME)
+
+help:
+	@echo "Available targets:"
+	@echo "  make         - Compile the project"
+	@echo "  make clean   - Remove object files"
+	@echo "  make fclean  - Remove everything"
+	@echo "  make re      - Rebuild from scratch"
+	@echo "  make test    - Compile and run"
+	@echo "  make help    - Show this help"
+
+.PHONY: all clean fclean re test help
