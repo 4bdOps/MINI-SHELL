@@ -10,5 +10,7 @@ typedef struct {
 
 // Function that does the parsing
 Command *parse_command(char *input);
+void    free_command(Command *cmd);
 
 #endif
+EOF
