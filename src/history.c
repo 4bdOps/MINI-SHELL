@@ -1,8 +1,8 @@
-ذ#include "../include/history.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include "../include/history.h"
 
 // TODO: P3 will implement these
 
