@@ -21,7 +21,7 @@ int main(void)
 {
     char        input[BUFFER_SIZE];
     t_command   *cmd;
-    int         status;
+  
 
     // Load command history from file
     load_history();
@@ -66,7 +66,7 @@ int main(void)
         }
         
         // Execute the command
-        status = execute_command(cmd);
+         execute_command(cmd);
         
         // Clean up
         free_command(cmd);
