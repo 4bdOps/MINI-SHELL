@@ -630,10 +630,16 @@ t_command *parse_command_line(char *input)
     /* ===== TRIM INPUT ===== */
     input = trim_input(input);
     
+    /* ===== SANITIZE INPUT (NEW!) ===== */
+    if (!sanitize_input(input))
+    {
+        free(cmd);
+        return NULL;
+    }
+    
     /* ===== DETECT PIPES ===== */
     if (has_pipe(input))
     {
-        // Extract just the first command (before the pipe)
         before_pipe = extract_before_pipe(input);
         if (!before_pipe)
         {
@@ -641,9 +647,7 @@ t_command *parse_command_line(char *input)
             return NULL;
         }
         
-        // Mark that this command outputs to a pipe
         cmd->is_pipe_output = 1;
-        
         input = before_pipe;
     }
     
@@ -653,7 +657,7 @@ t_command *parse_command_line(char *input)
     {
         free(cmd);
         if (cmd->is_pipe_output)
-            free((char *)input);  // Free before_pipe
+            free((char *)input);
         return NULL;
     }
     
@@ -703,7 +707,7 @@ t_command *parse_command_line(char *input)
     /* ===== CLEANUP ===== */
     free(cleaned_input);
     if (cmd->is_pipe_output)
-        free((char *)input);  // Free before_pipe
+        free((char *)input);
     
     return cmd;
 }
