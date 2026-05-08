@@ -8,40 +8,6 @@
 /* HELPER FUNCTIONS                                           */
 /* ========================================================== */
 
-static int count_arguments(char *input)
-{
-    int     count;
-    int     in_word;
-    char    *ptr;
-    
-    if (!input || input[0] == '\0')
-        return 0;
-    
-    count = 0;
-    in_word = 0;
-    ptr = input;
-    
-    while (*ptr)
-    {
-        if (*ptr != ' ' && *ptr != '\t' && *ptr != '|' && 
-            *ptr != '<' && *ptr != '>')
-        {
-            if (!in_word)
-            {
-                count++;
-                in_word = 1;
-            }
-        }
-        else
-        {
-            in_word = 0;
-        }
-        ptr++;
-    }
-    
-    return count;
-}
-
 static char *trim_input(char *input)
 {
     while (*input && (*input == ' ' || *input == '\t'))
@@ -273,30 +239,6 @@ static int has_pipe(char *input)
     return find_pipe(input) != NULL;
 }
 /**
- * is_quoted_char - Check if a position is inside quotes
- * @input: The string
- * @pos: Position to check
- * Return: 1 if position is inside quotes, 0 otherwise
- */
-static int is_quoted_char(char *input, char *pos)
-{
-    int     in_single = 0;
-    int     in_double = 0;
-    char    *ptr = input;
-    
-    while (ptr < pos && *ptr)
-    {
-        if (*ptr == '\'' && !in_double)
-            in_single = !in_single;
-        else if (*ptr == '"' && !in_single)
-            in_double = !in_double;
-        ptr++;
-    }
-    
-    return (in_single || in_double);
-}
-
-/**
  * count_arguments_quoted - Count arguments, respecting quotes
  * @input: The input string
  * Return: Number of arguments
@@ -337,6 +279,9 @@ static int count_arguments_quoted(char *input)
                 ptr++;
                 while (*ptr && *ptr != quote)
                     ptr++;
+                if (*ptr)
+                    ptr++;
+                continue;
             }
         }
         else
@@ -344,33 +289,33 @@ static int count_arguments_quoted(char *input)
             in_word = 0;
         }
         
-        if (*ptr)
-            ptr++;
+        ptr++;
     }
     
     return count;
 }
 
 /**
- * tokenize_quoted - Split input into tokens, respecting quotes
- * @input: The input string (NOT modified)
- * @tokens: Array to store tokens (must be pre-allocated)
- * @argc: Number of tokens to extract
- * Return: 1 on success, 0 on error
+ * tokenize_quoted - Split input into tokens, handling quotes
+ * @input: The input string
+ * @tokens: Array to fill with token strings
+ * @max_tokens: Maximum number of tokens to extract
+ * Return: 1 on success, 0 on failure
+ * 
+ * Example: 'echo "hello world"' produces ["echo", "hello world"]
  */
-static int tokenize_quoted(char *input, char **tokens, int argc)
+static int tokenize_quoted(char *input, char **tokens, int max_tokens)
 {
-    char    *ptr;
-    char    *token_start;
-    int     in_quote;
-    char    quote_char;
     int     token_idx;
-    int     token_len;
+    char    *ptr;
     
-    ptr = input;
+    if (!input || !tokens)
+        return 0;
+    
     token_idx = 0;
+    ptr = input;
     
-    while (*ptr && token_idx < argc)
+    while (*ptr && token_idx < max_tokens)
     {
         // Skip spaces
         while (*ptr && (*ptr == ' ' || *ptr == '\t'))
@@ -379,11 +324,20 @@ static int tokenize_quoted(char *input, char **tokens, int argc)
         if (!*ptr)
             break;
         
-        token_start = ptr;
-        in_quote = 0;
-        token_len = 0;
+        // Skip special characters (already handled by parse_redirections)
+        if (*ptr == '|' || *ptr == '<' || *ptr == '>')
+        {
+            ptr++;
+            continue;
+        }
         
-        // Extract one token (may include spaces if quoted)
+        // Start of a token
+        char *token_start = ptr;
+        int token_len = 0;
+        int in_quote = 0;
+        char quote_char = '\0';
+        
+        // Read until end of token
         while (*ptr)
         {
             // Handle quotes
@@ -392,6 +346,7 @@ static int tokenize_quoted(char *input, char **tokens, int argc)
                 quote_char = *ptr;
                 in_quote = 1;
                 ptr++;
+                token_len++;
                 continue;
             }
             
@@ -399,6 +354,7 @@ static int tokenize_quoted(char *input, char **tokens, int argc)
             {
                 in_quote = 0;
                 ptr++;
+                token_len++;
                 continue;
             }
             
@@ -596,11 +552,9 @@ static int sanitize_input(char *input)
 t_command *parse_command_line(char *input)
 {
     t_command   *cmd;
-    char        *input_copy;
     char        *cleaned_input;
     char        *before_pipe;
     int         argc;
-    int         i;
     
     /* ===== INPUT VALIDATION ===== */
     if (!input || input[0] == '\0')
@@ -655,8 +609,9 @@ t_command *parse_command_line(char *input)
     cleaned_input = parse_redirections(input, cmd);
     if (!cleaned_input)
     {
+        int was_pipe = cmd->is_pipe_output;
         free(cmd);
-        if (cmd->is_pipe_output)
+        if (was_pipe)
             free((char *)input);
         return NULL;
     }
@@ -666,8 +621,9 @@ t_command *parse_command_line(char *input)
     if (argc == 0)
     {
         fprintf(stderr, "Error: No command found\n");
+        int was_pipe = cmd->is_pipe_output;
         free(cleaned_input);
-        if (cmd->is_pipe_output)
+        if (was_pipe)
             free((char *)input);
         free(cmd);
         return NULL;
@@ -678,8 +634,9 @@ t_command *parse_command_line(char *input)
     if (!cmd->args)
     {
         fprintf(stderr, "Error: Memory allocation failed\n");
+        int was_pipe = cmd->is_pipe_output;
         free(cleaned_input);
-        if (cmd->is_pipe_output)
+        if (was_pipe)
             free((char *)input);
         free(cmd);
         return NULL;
@@ -689,9 +646,10 @@ t_command *parse_command_line(char *input)
     if (!tokenize_quoted(cleaned_input, cmd->args, argc))
     {
         fprintf(stderr, "Error: Tokenization failed\n");
+        int was_pipe = cmd->is_pipe_output;
         free(cmd->args);
         free(cleaned_input);
-        if (cmd->is_pipe_output)
+        if (was_pipe)
             free((char *)input);
         free(cmd);
         return NULL;
