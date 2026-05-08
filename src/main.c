@@ -8,23 +8,13 @@
 
 #define BUFFER_SIZE 1024
 
-/**
- * main - The main shell loop
- * 
- * 1. Print prompt
- * 2. Read user input
- * 3. Parse the command
- * 4. Execute the command
- * 5. Repeat until "exit"
- */
 int main(void)
 {
     char        input[BUFFER_SIZE];
     t_command   *cmd;
-    int         status;
 
-    // Load command history from file
-    load_history();
+    // Load history (P3 will implement this)
+    // load_history();
     
     while (1)
     {
@@ -32,7 +22,7 @@ int main(void)
         printf("mini_shell$ ");
         fflush(stdout);
         
-        // Read input from user
+        // Read input
         if (!fgets(input, BUFFER_SIZE, stdin))
         {
             // EOF (Ctrl+D)
@@ -40,15 +30,12 @@ int main(void)
             break;
         }
         
-        // Remove newline at the end
+        // Remove newline
         input[strcspn(input, "\n")] = '\0';
         
         // Skip empty lines
         if (strlen(input) == 0)
             continue;
-        
-        // Add to history
-        add_to_history(input);
         
         // Parse the command
         cmd = parse_command_line(input);
@@ -58,22 +45,32 @@ int main(void)
             continue;
         }
         
-        // Special case: exit command
+        // Print what we parsed (for debugging)
+        printf("[DEBUG] Parsed command: %s with %d args\n", cmd->name, cmd->argc);
+        
+        // Add to history (P3 will implement)
+        // add_to_history(input);
+        
+        // Check for exit command
         if (strcmp(cmd->name, "exit") == 0)
         {
             free_command(cmd);
             break;
         }
         
-        // Execute the command
-        status = execute_command(cmd);
+        // Execute the command (P2/P3/P4 will implement)
+        // execute_command(cmd);
         
-        // Clean up
+        // For now, just print it
+        printf("→ Would execute: %s\n", cmd->name);
+        
+        // Cleanup
         free_command(cmd);
     }
     
-    // Save history before exiting
-    save_history();
+    // Save history
+    // save_history();
     
+    printf("\nGoodbye!\n");
     return 0;
 }
