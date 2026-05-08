@@ -59,4 +59,14 @@ help:
 	@echo "  make test    - Compile and run"
 	@echo "  make help    - Show this help"
 
+# Test parser
+test_parser: $(OBJS)
+	gcc -Wall -Wextra -I./include tests/test_parser.c src/parser.c -o test_parser
+	./test_parser
+
+# Run all tests
+test: test_parser
+
+.PHONY: test test_parser
+
 .PHONY: all clean fclean re test help
