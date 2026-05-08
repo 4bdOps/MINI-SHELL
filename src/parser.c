@@ -8,13 +8,6 @@
 /* HELPER FUNCTIONS                                           */
 /* ========================================================== */
 
-/**
- * count_arguments - Count how many arguments in a string
- * @input: The input string (e.g., "ls -la /tmp")
- * Return: Number of words/arguments
- * 
- * Example: "ls -la /tmp" returns 3
- */
 static int count_arguments(char *input)
 {
     int     count;
@@ -28,13 +21,11 @@ static int count_arguments(char *input)
     in_word = 0;
     ptr = input;
     
-    // Walk through the entire string
     while (*ptr)
     {
-        // If it's not a space
-        if (*ptr != ' ' && *ptr != '\t')
+        if (*ptr != ' ' && *ptr != '\t' && *ptr != '|' && 
+            *ptr != '<' && *ptr != '>')
         {
-            // If we weren't in a word, start counting
             if (!in_word)
             {
                 count++;
@@ -43,7 +34,6 @@ static int count_arguments(char *input)
         }
         else
         {
-            // Space found, mark that we're not in a word anymore
             in_word = 0;
         }
         ptr++;
@@ -52,13 +42,6 @@ static int count_arguments(char *input)
     return count;
 }
 
-/**
- * trim_input - Remove leading/trailing spaces
- * @input: The input string
- * Return: Pointer to trimmed string (inside original)
- * 
- * This helps us ignore spaces at the start/end of input
- */
 static char *trim_input(char *input)
 {
     while (*input && (*input == ' ' || *input == '\t'))
@@ -66,19 +49,155 @@ static char *trim_input(char *input)
     return input;
 }
 
-/* ========================================================== */
-/* MAIN PARSER FUNCTIONS                                      */
-/* ========================================================== */
+/**
+ * find_special_char - Find first occurrence of |, <, or >
+ * @input: The input string
+ * Return: Pointer to the special character, or NULL if none found
+ */
+static char *find_special_char(char *input)
+{
+    while (*input)
+    {
+        if (*input == '|' || *input == '<' || *input == '>')
+            return input;
+        input++;
+    }
+    return NULL;
+}
 
 /**
- * parse_command_line - Parse a command string into tokens
- * @input: The user input (e.g., "ls -la /tmp")
- * Return: A t_command struct, or NULL if error
+ * extract_filename - Extract filename after > or 
+ * @input: Pointer to the > or < character
+ * Return: Allocated string with filename, or NULL
+ * 
+ * Example: " > output.txt" returns "output.txt"
  */
+static char *extract_filename(char *input)
+{
+    char    *start;
+    char    *end;
+    char    *filename;
+    int     len;
+    
+    // Skip the > or < character
+    input++;
+    
+    // Skip spaces
+    while (*input && (*input == ' ' || *input == '\t'))
+        input++;
+    
+    // If nothing after >, error
+    if (!*input)
+    {
+        fprintf(stderr, "Error: No filename after redirection\n");
+        return NULL;
+    }
+    
+    start = input;
+    
+    // Find end of filename (next space or special char)
+    while (*input && *input != ' ' && *input != '\t' && 
+           *input != '|' && *input != '<' && *input != '>')
+        input++;
+    
+    end = input;
+    len = end - start;
+    
+    filename = malloc(len + 1);
+    if (!filename)
+        return NULL;
+    
+    strncpy(filename, start, len);
+    filename[len] = '\0';
+    
+    return filename;
+}
+
+/**
+ * parse_redirections - Find and extract < and > redirections
+ * @input: The full input string
+ * @cmd: The command to populate
+ * Return: Input string with redirections removed
+ * 
+ * Side effect: Modifies cmd->input_file, cmd->output_file, etc.
+ */
+static char *parse_redirections(char *input, t_command *cmd)
+{
+    char    *cleaned_input;
+    char    *ptr;
+    char    *special;
+    
+    // Make a copy we can modify
+    cleaned_input = malloc(strlen(input) + 1);
+    if (!cleaned_input)
+        return NULL;
+    strcpy(cleaned_input, input);
+    
+    ptr = cleaned_input;
+    
+    // Look for > or 
+    special = find_special_char(ptr);
+    
+    while (special)
+    {
+        if (*special == '>')
+        {
+            // Check if it's >> (append)
+            if (*(special + 1) == '>')
+            {
+                cmd->output_file = extract_filename(special + 1);
+                cmd->append_output = 1;
+                
+                // Remove >> and filename from string
+                char *after = cmd->output_file ? 
+                    special + 2 + strlen(cmd->output_file) : special + 2;
+                
+                // Copy the rest back
+                strcpy(special, after);
+                special = find_special_char(special);
+            }
+            else
+            {
+                cmd->output_file = extract_filename(special);
+                cmd->append_output = 0;
+                
+                // Remove > and filename from string
+                char *after = cmd->output_file ? 
+                    special + 1 + strlen(cmd->output_file) : special + 1;
+                
+                strcpy(special, after);
+                special = find_special_char(special);
+            }
+        }
+        else if (*special == '<')
+        {
+            cmd->input_file = extract_filename(special);
+            
+            // Remove < and filename from string
+            char *after = cmd->input_file ? 
+                special + 1 + strlen(cmd->input_file) : special + 1;
+            
+            strcpy(special, after);
+            special = find_special_char(special);
+        }
+        else
+        {
+            break;
+        }
+    }
+    
+    return cleaned_input;
+}
+
+/* ========================================================== */
+/* MAIN PARSER FUNCTION                                       */
+/* ========================================================== */
+
 t_command *parse_command_line(char *input)
 {
     t_command   *cmd;
     char        *input_copy;
+    char        *cleaned_input;
     char        *token;
     int         argc;
     int         i;
@@ -111,79 +230,80 @@ t_command *parse_command_line(char *input)
     /* ===== TRIM INPUT ===== */
     input = trim_input(input);
     
+    /* ===== PARSE REDIRECTIONS ===== */
+    cleaned_input = parse_redirections(input, cmd);
+    if (!cleaned_input)
+    {
+        free(cmd);
+        return NULL;
+    }
+    
     /* ===== COUNT ARGUMENTS ===== */
-    argc = count_arguments(input);
+    argc = count_arguments(cleaned_input);
     if (argc == 0)
     {
         fprintf(stderr, "Error: No command found\n");
+        free(cleaned_input);
         free(cmd);
         return NULL;
     }
     
     /* ===== ALLOCATE ARGS ARRAY ===== */
-    // We need space for argc strings + 1 NULL terminator
     cmd->args = malloc(sizeof(char *) * (argc + 1));
     if (!cmd->args)
     {
         fprintf(stderr, "Error: Memory allocation failed\n");
+        free(cleaned_input);
         free(cmd);
         return NULL;
     }
     
-    /* ===== COPY INPUT (strtok modifies the string, so copy first) ===== */
-    input_copy = malloc(strlen(input) + 1);
+    /* ===== COPY FOR TOKENIZATION ===== */
+    input_copy = malloc(strlen(cleaned_input) + 1);
     if (!input_copy)
     {
         fprintf(stderr, "Error: Memory allocation failed\n");
         free(cmd->args);
+        free(cleaned_input);
         free(cmd);
         return NULL;
     }
-    strcpy(input_copy, input);
+    strcpy(input_copy, cleaned_input);
     
     /* ===== TOKENIZE ===== */
     i = 0;
-    token = strtok(input_copy, " \t");  // Split by spaces and tabs
+    token = strtok(input_copy, " \t");
     
     while (token && i < argc)
     {
-        // Allocate memory for this argument
         cmd->args[i] = malloc(strlen(token) + 1);
         if (!cmd->args[i])
         {
             fprintf(stderr, "Error: Memory allocation failed\n");
             free_command(cmd);
             free(input_copy);
+            free(cleaned_input);
             return NULL;
         }
         
-        // Copy the token into args
         strcpy(cmd->args[i], token);
-        
-        // Move to next token
         token = strtok(NULL, " \t");
         i++;
     }
     
-    // NULL terminate the args array (like argv in main)
     cmd->args[argc] = NULL;
     
     /* ===== SET COMMAND NAME AND ARGC ===== */
-    cmd->name = cmd->args[0];  // First argument is the command name
+    cmd->name = cmd->args[0];
     cmd->argc = argc;
     
     /* ===== CLEANUP ===== */
     free(input_copy);
+    free(cleaned_input);
     
     return cmd;
 }
 
-/**
- * free_command - Free all memory used by a command
- * @cmd: The command to free
- * 
- * IMPORTANT: Always call this after using a command!
- */
 void free_command(t_command *cmd)
 {
     int i;
@@ -191,7 +311,6 @@ void free_command(t_command *cmd)
     if (!cmd)
         return;
     
-    // Free all arguments
     if (cmd->args)
     {
         i = 0;
@@ -203,15 +322,10 @@ void free_command(t_command *cmd)
         free(cmd->args);
     }
     
-    // Free input/output files if they exist
     if (cmd->input_file)
         free(cmd->input_file);
     if (cmd->output_file)
         free(cmd->output_file);
     
-    // Don't free cmd->name because it points to cmd->args[0]
-    // which we already freed above
-    
-    // Free the command structure itself
     free(cmd);
 }
