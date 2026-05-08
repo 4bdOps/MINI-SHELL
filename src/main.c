@@ -1,3 +1,5 @@
+
+
 #include "../include/parser.h"
 #include "../include/executor.h"
 #include "../include/history.h"
@@ -13,9 +15,6 @@ int main(void)
     char        input[BUFFER_SIZE];
     t_command   *cmd;
 
-    // Load history (P3 will implement this)
-    // load_history();
-    
     while (1)
     {
         // Print prompt
@@ -25,7 +24,6 @@ int main(void)
         // Read input
         if (!fgets(input, BUFFER_SIZE, stdin))
         {
-            // EOF (Ctrl+D)
             printf("exit\n");
             break;
         }
@@ -45,12 +43,6 @@ int main(void)
             continue;
         }
         
-        // Print what we parsed (for debugging)
-        
-        
-        // Add to history (P3 will implement)
-        // add_to_history(input);
-        
         // Check for exit command
         if (strcmp(cmd->name, "exit") == 0)
         {
@@ -58,18 +50,18 @@ int main(void)
             break;
         }
         
-        // Execute the command (P2/P3/P4 will implement)
-        // execute_command(cmd);
+        // For now, just show what we parsed
+        printf("[PARSED] %s | Pipe: %s | Input file: %s | Output file: %s\n",
+            cmd->name,
+            cmd->is_pipe_output ? "YES" : "NO",
+            cmd->input_file ? cmd->input_file : "NONE",
+            cmd->output_file ? cmd->output_file : "NONE");
         
-        // For now, just print it
-       
+        // TODO: Execute the command
         
         // Cleanup
         free_command(cmd);
     }
-    
-    // Save history
-    // save_history();
     
     printf("\nGoodbye!\n");
     return 0;
