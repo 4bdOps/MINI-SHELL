@@ -46,7 +46,7 @@ int main(void)
         }
         
         // Print what we parsed (for debugging)
-        printf("[DEBUG] Parsed command: %s with %d args\n", cmd->name, cmd->argc);
+        
         
         // Add to history (P3 will implement)
         // add_to_history(input);
@@ -62,7 +62,7 @@ int main(void)
         // execute_command(cmd);
         
         // For now, just print it
-        printf("→ Would execute: %s\n", cmd->name);
+       
         
         // Cleanup
         free_command(cmd);
