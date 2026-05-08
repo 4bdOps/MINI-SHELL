@@ -188,6 +188,90 @@ static char *parse_redirections(char *input, t_command *cmd)
     
     return cleaned_input;
 }
+/**
+ * parse_pipes - Separate commands by pipes and mark them
+ * @input: The full input string
+ * Return: Array of t_command structures, or NULL if error
+ * 
+ * For now, we only handle the FIRST command before the pipe.
+ * P4 will implement full pipeline execution.
+ * 
+ * Example:
+ *   Input: "ls -la | grep .c"
+ *   Returns: First command {name: "ls", is_pipe_output: 1}
+ *   (The second command will be handled later)
+ */
+static char *find_pipe(char *input)
+{
+    while (*input)
+    {
+        // Skip quoted strings (don't count | inside quotes)
+        if (*input == '"' || *input == '\'')
+        {
+            char quote = *input;
+            input++;
+            while (*input && *input != quote)
+                input++;
+            if (*input)
+                input++;
+        }
+        else if (*input == '|')
+        {
+            return input;
+        }
+        else
+        {
+            input++;
+        }
+    }
+    return NULL;
+}
+
+/**
+ * extract_before_pipe - Get everything before the first pipe
+ * @input: The full input string
+ * Return: Allocated string with just the first command, or NULL
+ * 
+ * Example: "ls -la | grep .c" returns "ls -la"
+ */
+static char *extract_before_pipe(char *input)
+{
+    char    *pipe_pos;
+    char    *result;
+    int     len;
+    
+    pipe_pos = find_pipe(input);
+    
+    if (!pipe_pos)
+    {
+        // No pipe found, return the whole string
+        result = malloc(strlen(input) + 1);
+        if (result)
+            strcpy(result, input);
+        return result;
+    }
+    
+    // Pipe found, extract everything before it
+    len = pipe_pos - input;
+    result = malloc(len + 1);
+    if (!result)
+        return NULL;
+    
+    strncpy(result, input, len);
+    result[len] = '\0';
+    
+    return result;
+}
+
+/**
+ * has_pipe - Check if input contains a pipe
+ * @input: The input string
+ * Return: 1 if pipe found, 0 otherwise
+ */
+static int has_pipe(char *input)
+{
+    return find_pipe(input) != NULL;
+}
 
 /* ========================================================== */
 /* MAIN PARSER FUNCTION                                       */
