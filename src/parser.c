@@ -449,7 +449,7 @@ t_command *parse_command_line(char *input)
     t_command   *cmd;
     char        *input_copy;
     char        *cleaned_input;
-    char        *token;
+    char        *before_pipe;
     int         argc;
     int         i;
     
@@ -481,20 +481,41 @@ t_command *parse_command_line(char *input)
     /* ===== TRIM INPUT ===== */
     input = trim_input(input);
     
+    /* ===== DETECT PIPES ===== */
+    if (has_pipe(input))
+    {
+        // Extract just the first command (before the pipe)
+        before_pipe = extract_before_pipe(input);
+        if (!before_pipe)
+        {
+            free(cmd);
+            return NULL;
+        }
+        
+        // Mark that this command outputs to a pipe
+        cmd->is_pipe_output = 1;
+        
+        input = before_pipe;
+    }
+    
     /* ===== PARSE REDIRECTIONS ===== */
     cleaned_input = parse_redirections(input, cmd);
     if (!cleaned_input)
     {
         free(cmd);
+        if (cmd->is_pipe_output)
+            free((char *)input);  // Free before_pipe
         return NULL;
     }
     
-    /* ===== COUNT ARGUMENTS ===== */
-    argc = count_arguments(cleaned_input);
+    /* ===== COUNT ARGUMENTS (WITH QUOTE HANDLING) ===== */
+    argc = count_arguments_quoted(cleaned_input);
     if (argc == 0)
     {
         fprintf(stderr, "Error: No command found\n");
         free(cleaned_input);
+        if (cmd->is_pipe_output)
+            free((char *)input);
         free(cmd);
         return NULL;
     }
@@ -505,43 +526,25 @@ t_command *parse_command_line(char *input)
     {
         fprintf(stderr, "Error: Memory allocation failed\n");
         free(cleaned_input);
+        if (cmd->is_pipe_output)
+            free((char *)input);
         free(cmd);
         return NULL;
     }
     
-    /* ===== COPY FOR TOKENIZATION ===== */
-    input_copy = malloc(strlen(cleaned_input) + 1);
-    if (!input_copy)
+    /* ===== TOKENIZE WITH QUOTE HANDLING ===== */
+    if (!tokenize_quoted(cleaned_input, cmd->args, argc))
     {
-        fprintf(stderr, "Error: Memory allocation failed\n");
+        fprintf(stderr, "Error: Tokenization failed\n");
         free(cmd->args);
         free(cleaned_input);
+        if (cmd->is_pipe_output)
+            free((char *)input);
         free(cmd);
         return NULL;
     }
-    strcpy(input_copy, cleaned_input);
     
-    /* ===== TOKENIZE ===== */
-    i = 0;
-    token = strtok(input_copy, " \t");
-    
-    while (token && i < argc)
-    {
-        cmd->args[i] = malloc(strlen(token) + 1);
-        if (!cmd->args[i])
-        {
-            fprintf(stderr, "Error: Memory allocation failed\n");
-            free_command(cmd);
-            free(input_copy);
-            free(cleaned_input);
-            return NULL;
-        }
-        
-        strcpy(cmd->args[i], token);
-        token = strtok(NULL, " \t");
-        i++;
-    }
-    
+    // NULL terminate the args array
     cmd->args[argc] = NULL;
     
     /* ===== SET COMMAND NAME AND ARGC ===== */
@@ -549,8 +552,9 @@ t_command *parse_command_line(char *input)
     cmd->argc = argc;
     
     /* ===== CLEANUP ===== */
-    free(input_copy);
     free(cleaned_input);
+    if (cmd->is_pipe_output)
+        free((char *)input);  // Free before_pipe
     
     return cmd;
 }
