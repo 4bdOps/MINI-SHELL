@@ -439,6 +439,155 @@ static int tokenize_quoted(char *input, char **tokens, int argc)
     
     return 1;
 }
+/**
+ * check_quotes_balanced - Verify all quotes are closed
+ * @input: The input string
+ * Return: 1 if balanced, 0 if not
+ */
+static int check_quotes_balanced(char *input)
+{
+    int     in_single = 0;
+    int     in_double = 0;
+    
+    while (*input)
+    {
+        if (*input == '\'' && !in_double)
+            in_single = !in_single;
+        else if (*input == '"' && !in_single)
+            in_double = !in_double;
+        
+        input++;
+    }
+    
+    // If still in a quote, it's unbalanced
+    if (in_single || in_double)
+    {
+        fprintf(stderr, "Error: Unmatched quote\n");
+        return 0;
+    }
+    
+    return 1;
+}
+
+/**
+ * check_redirections_valid - Verify redirections have filenames
+ * @input: The input string
+ * Return: 1 if valid, 0 if not
+ */
+static int check_redirections_valid(char *input)
+{
+    while (*input)
+    {
+        if (*input == '>' || *input == '<')
+        {
+            char    *ptr = input + 1;
+            
+            // Skip >> if it exists
+            if (*ptr == '>')
+                ptr++;
+            
+            // Skip spaces
+            while (*ptr && (*ptr == ' ' || *ptr == '\t'))
+                ptr++;
+            
+            // If we hit end of string, pipe, or another redirect, error
+            if (!*ptr || *ptr == '|' || *ptr == '<' || *ptr == '>')
+            {
+                fprintf(stderr, "Error: Redirection operator without filename\n");
+                return 0;
+            }
+        }
+        
+        input++;
+    }
+    
+    return 1;
+}
+
+/**
+ * check_pipes_valid - Verify pipes have commands on both sides
+ * @input: The input string
+ * Return: 1 if valid, 0 if not
+ */
+static int check_pipes_valid(char *input)
+{
+    char    *ptr;
+    int     in_quote = 0;
+    char    quote_char;
+    
+    ptr = input;
+    
+    while (*ptr)
+    {
+        // Track quotes
+        if ((*ptr == '"' || *ptr == '\'') && !in_quote)
+        {
+            quote_char = *ptr;
+            in_quote = 1;
+            ptr++;
+            continue;
+        }
+        
+        if (*ptr == quote_char && in_quote)
+        {
+            in_quote = 0;
+            ptr++;
+            continue;
+        }
+        
+        // Check pipe outside quotes
+        if (*ptr == '|' && !in_quote)
+        {
+            // Check something before pipe
+            char *before = ptr - 1;
+            while (before >= input && (*before == ' ' || *before == '\t'))
+                before--;
+            
+            if (before < input || *before == '|')
+            {
+                fprintf(stderr, "Error: Pipe with no command before it\n");
+                return 0;
+            }
+            
+            // Check something after pipe
+            char *after = ptr + 1;
+            while (*after && (*after == ' ' || *after == '\t'))
+                after++;
+            
+            if (!*after || *after == '|')
+            {
+                fprintf(stderr, "Error: Pipe with no command after it\n");
+                return 0;
+            }
+        }
+        
+        ptr++;
+    }
+    
+    return 1;
+}
+
+/**
+ * sanitize_input - Clean and validate input
+ * @input: The input string
+ * Return: 1 if valid, 0 if not
+ */
+static int sanitize_input(char *input)
+{
+    // Check balanced quotes
+    if (!check_quotes_balanced(input))
+        return 0;
+    
+    // Check redirections are valid
+    if (!check_redirections_valid(input))
+        return 0;
+    
+    // Check pipes are valid
+    if (!check_pipes_valid(input))
+        return 0;
+    
+    return 1;
+}
 
 /* ========================================================== */
 /* MAIN PARSER FUNCTION                                       */
