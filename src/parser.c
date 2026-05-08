@@ -272,6 +272,173 @@ static int has_pipe(char *input)
 {
     return find_pipe(input) != NULL;
 }
+/**
+ * is_quoted_char - Check if a position is inside quotes
+ * @input: The string
+ * @pos: Position to check
+ * Return: 1 if position is inside quotes, 0 otherwise
+ */
+static int is_quoted_char(char *input, char *pos)
+{
+    int     in_single = 0;
+    int     in_double = 0;
+    char    *ptr = input;
+    
+    while (ptr < pos && *ptr)
+    {
+        if (*ptr == '\'' && !in_double)
+            in_single = !in_single;
+        else if (*ptr == '"' && !in_single)
+            in_double = !in_double;
+        ptr++;
+    }
+    
+    return (in_single || in_double);
+}
+
+/**
+ * count_arguments_quoted - Count arguments, respecting quotes
+ * @input: The input string
+ * Return: Number of arguments
+ * 
+ * Example: 'echo "hello world"' returns 2, not 3
+ */
+static int count_arguments_quoted(char *input)
+{
+    int     count;
+    int     in_word;
+    char    *ptr;
+    
+    if (!input || input[0] == '\0')
+        return 0;
+    
+    count = 0;
+    in_word = 0;
+    ptr = input;
+    
+    while (*ptr)
+    {
+        // Check if current char is a space (but not inside quotes)
+        int is_space = (*ptr == ' ' || *ptr == '\t');
+        int is_special = (*ptr == '|' || *ptr == '<' || *ptr == '>');
+        
+        if (!is_space && !is_special)
+        {
+            if (!in_word)
+            {
+                count++;
+                in_word = 1;
+            }
+            
+            // Skip quoted strings
+            if (*ptr == '"' || *ptr == '\'')
+            {
+                char quote = *ptr;
+                ptr++;
+                while (*ptr && *ptr != quote)
+                    ptr++;
+            }
+        }
+        else
+        {
+            in_word = 0;
+        }
+        
+        if (*ptr)
+            ptr++;
+    }
+    
+    return count;
+}
+
+/**
+ * tokenize_quoted - Split input into tokens, respecting quotes
+ * @input: The input string (NOT modified)
+ * @tokens: Array to store tokens (must be pre-allocated)
+ * @argc: Number of tokens to extract
+ * Return: 1 on success, 0 on error
+ */
+static int tokenize_quoted(char *input, char **tokens, int argc)
+{
+    char    *ptr;
+    char    *token_start;
+    int     in_quote;
+    char    quote_char;
+    int     token_idx;
+    int     token_len;
+    
+    ptr = input;
+    token_idx = 0;
+    
+    while (*ptr && token_idx < argc)
+    {
+        // Skip spaces
+        while (*ptr && (*ptr == ' ' || *ptr == '\t'))
+            ptr++;
+        
+        if (!*ptr)
+            break;
+        
+        token_start = ptr;
+        in_quote = 0;
+        token_len = 0;
+        
+        // Extract one token (may include spaces if quoted)
+        while (*ptr)
+        {
+            // Handle quotes
+            if ((*ptr == '"' || *ptr == '\'') && !in_quote)
+            {
+                quote_char = *ptr;
+                in_quote = 1;
+                ptr++;
+                continue;
+            }
+            
+            if (*ptr == quote_char && in_quote)
+            {
+                in_quote = 0;
+                ptr++;
+                continue;
+            }
+            
+            // End of token (space or pipe/redirect, but not in quotes)
+            if (!in_quote && (*ptr == ' ' || *ptr == '\t' || 
+                             *ptr == '|' || *ptr == '<' || *ptr == '>'))
+                break;
+            
+            ptr++;
+            token_len++;
+        }
+        
+        // Allocate and copy token
+        tokens[token_idx] = malloc(token_len + 1);
+        if (!tokens[token_idx])
+            return 0;
+        
+        // Copy token, removing quotes
+        char *src = token_start;
+        char *dst = tokens[token_idx];
+        int idx = 0;
+        
+        while (src < ptr)
+        {
+            if (*src == '"' || *src == '\'')
+            {
+                src++;
+                continue;
+            }
+            dst[idx] = *src;
+            idx++;
+            src++;
+        }
+        dst[idx] = '\0';
+        
+        token_idx++;
+    }
+    
+    return 1;
+}
 
 /* ========================================================== */
 /* MAIN PARSER FUNCTION                                       */
