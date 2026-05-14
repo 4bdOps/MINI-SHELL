@@ -1,20 +1,21 @@
-#include <stdlib.h>
-#include <string.h>
+#include "minishell.h"
 
-/**
- * Utility functions that everyone might need
- */
-
-char *str_duplicate(const char *src)
+void print_error(const char *msg)
 {
-    char *dest;
-    
-    if (!src)
-        return NULL;
-    
-    dest = malloc(strlen(src) + 1);
-    if (dest)
-        strcpy(dest, src);
-    
-    return dest;
+    fprintf(stderr, ERROR_COLOR "minishell: %s\n" RESET_COLOR, msg);
+}
+
+void print_prompt(void)
+{
+    char cwd[MAX_PATH];
+    if (!getcwd(cwd, sizeof(cwd)))
+        strncpy(cwd, "?", sizeof(cwd));
+
+    /* Show only the last component to keep prompt short */
+    char *last = strrchr(cwd, '/');
+    const char *display = (last && *(last + 1)) ? last + 1 : cwd;
+
+    printf(PROMPT_COLOR "minishell" RESET_COLOR
+           ":" INFO_COLOR "%s" RESET_COLOR "$ ", display);
+    fflush(stdout);
 }
