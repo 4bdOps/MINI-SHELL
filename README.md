@@ -44,7 +44,7 @@ Conformément aux directives, les éléments suivants doivent être soumis :
 
 ## 4. INSTALLATION ET COMPILATION
 
-$git clone [url-du-depot]$ cd mini-shell
+$git clone https://github.com/4bdOps/MINI-SHELL$ cd mini-shell
 $ make
 $ ./mini_shell
 
@@ -52,13 +52,11 @@ $ ./mini_shell
 
 ## 5. EQUIPE DE DEVELOPPEMENT
 
-- Membre 1 : abdellah yeouss oumass
-- Membre 2 : asmae elghazi
-- Membre 3 : fairouz mhijeb
-- Membre 4 : fadi safou
-- Membre 5 : moncef essaken
+- Membre 1 : abdellah yeoussoumass --> PARSER 
+- Membre 2 : asmae elghazi         -->HISTORY AND ERRORS HANDLING
+- Membre 3 : fairouz mhijeb        -->BUILT-IN CMNDS
+- Membre 4 : fadi safou            -->REDIRECTION AND PIPS
+- Membre 5 : moncef essaken        -->SCRIPTS AND DOCUMENTATION
 
 Structure : teamwork
 
----
-Module : Administration Système / Programmation Système
